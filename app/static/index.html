@@ -1,0 +1,1696 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f97316">
+<title>RAG-MD — поиск по нормативной базе</title>
+
+<style>
+:root {
+  --bg: #f4f6fb;
+  --text: #172033;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --orange: #f97316;
+  --orange-dark: #c2410c;
+  --danger: #b91c1c;
+  --radius: 16px;
+  --shadow: 0 10px 30px rgba(15, 23, 42, .055);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  background:
+    radial-gradient(850px 420px at 0% 0%, #e0edff, transparent 65%),
+    radial-gradient(750px 420px at 100% 0%, #fff0e1, transparent 65%),
+    var(--bg);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+body.modal-open { overflow: hidden; }
+button, input, textarea { font: inherit; }
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.container {
+  max-width: 1440px;
+  margin: auto;
+  padding: 26px 24px 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, #ffad45, #f97316);
+  box-shadow: 0 8px 20px rgba(249, 115, 22, .2);
+  font-size: 32px;
+}
+
+.brand h1 {
+  margin: 0;
+  color: var(--orange-dark);
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -.04em;
+}
+
+.subtitle {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 390px;
+  gap: 22px;
+  align-items: start;
+}
+
+.left-column,
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+.card {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  font-size: 21.33px;
+  line-height: 1.3;
+  letter-spacing: -.02em;
+}
+
+.card h2::before {
+  content: "";
+  flex-shrink: 0;
+  width: 4px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--primary);
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 150px;
+  padding: 15px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+textarea:focus {
+  border-color: var(--primary);
+  background: #fff;
+}
+
+textarea::placeholder { color: #8793a3; }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 17px;
+  border: 0;
+  border-radius: 11px;
+  cursor: pointer;
+  font-weight: 650;
+  line-height: 1.35;
+  transition: background .16s, transform .16s;
+}
+
+button:not(:disabled):active { transform: translateY(1px); }
+button:disabled { opacity: .6; cursor: not-allowed; }
+
+.primary {
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, .17);
+}
+
+.primary:not(:disabled):hover { background: var(--primary-hover); }
+
+.secondary {
+  color: var(--text);
+  background: #f1f5f9;
+}
+
+.secondary:not(:disabled):hover { background: #e2e8f0; }
+.full-width { width: 100%; }
+
+.hint {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.files-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.files-heading h2 { margin: 0; }
+
+.badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #075985;
+  background: #e0f2fe;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  min-height: 55px;
+  padding: 2px 5px 2px 1px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: #b7c5d9 #f1f5f9;
+}
+
+.file-list::-webkit-scrollbar { width: 7px; }
+.file-list::-webkit-scrollbar-track { background: #f1f5f9; }
+.file-list::-webkit-scrollbar-thumb {
+  background: #b7c5d9;
+  border-radius: 8px;
+}
+
+.file-item {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 52px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: #f8fafc;
+  text-decoration: none;
+}
+
+.file-item:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.file-info { min-width: 0; }
+
+.file-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.file-meta {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.file-type {
+  flex-shrink: 0;
+  padding: 3px 6px;
+  border-radius: 6px;
+  color: #3730a3;
+  background: #e0e7ff;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.empty {
+  margin: 0;
+  padding: 12px 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.upload-zone {
+  padding: 16px 12px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 13px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.upload-zone.dragover {
+  border-color: var(--orange);
+  background: #fff7ed;
+}
+
+.upload-zone input[type="file"] {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+  background: #fff;
+  font-size: 12px;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 8px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  background: #e2e8f0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.selected-file {
+  margin-top: 10px;
+  color: var(--orange-dark);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.answer {
+  min-height: 130px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+
+.answer > :first-child { margin-top: 0; }
+.answer > :last-child { margin-bottom: 0; }
+.answer p { margin: 0 0 14px; }
+
+.answer h3,
+.answer h4,
+.answer h5,
+.answer h6 {
+  margin: 22px 0 10px;
+  line-height: 1.4;
+}
+
+.answer h3 { font-size: 21px; }
+.answer h4 { font-size: 19px; }
+.answer h5, .answer h6 { font-size: 17px; }
+
+.answer ul, .answer ol {
+  margin: 10px 0 16px;
+  padding-left: 26px;
+}
+
+.answer li { margin: 7px 0; }
+.answer strong { font-weight: 750; }
+
+.answer code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #9a3412;
+  background: #ffedd5;
+  font-size: .9em;
+}
+
+.answer pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 10px;
+  background: #eaf0f7;
+  white-space: pre;
+}
+
+.answer pre code {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+}
+
+.answer blockquote {
+  margin: 14px 0;
+  padding: 4px 14px;
+  border-left: 3px solid #93c5fd;
+  color: #475569;
+}
+
+.answer hr {
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.answer.is-error {
+  color: var(--danger);
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.sources {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.source {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.source-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.source-title {
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.source-text {
+  max-height: 230px;
+  margin: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #334155;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.page-link {
+  display: inline-block;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--primary);
+  background: #eff6ff;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.page-link:hover { background: #dbeafe; }
+
+.status {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.status:empty { display: none; }
+
+.status.ok {
+  padding: 12px;
+  border-radius: 10px;
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.status.error { color: var(--danger); }
+
+.error-panel {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.error-panel h2,
+.error-panel p { color: var(--danger); }
+
+.error-panel h2::before { background: var(--danger); }
+
+.error-panel p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.error-panel details {
+  margin-top: 12px;
+  color: #7f1d1d;
+  font-size: 13px;
+}
+
+.error-panel summary { cursor: pointer; }
+
+.error-details {
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  background: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.footer {
+  margin-top: 30px;
+  padding: 20px 0 24px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+}
+
+.footer a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.modal-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .5);
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  width: min(100%, 440px);
+  padding: 32px 26px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 24px 90px rgba(15, 23, 42, .25);
+  text-align: center;
+}
+
+.hourglass {
+  display: inline-block;
+  margin-bottom: 18px;
+  font-size: 58px;
+  line-height: 1;
+  animation: hourglass-turn 2s ease-in-out infinite;
+}
+
+.modal h2 { margin: 0 0 10px; font-size: 23px; }
+
+.modal-file {
+  margin: 0;
+  color: var(--orange-dark);
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.modal-description {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.elapsed {
+  display: inline-block;
+  margin-top: 18px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  color: var(--orange-dark);
+  background: #fff7ed;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes hourglass-turn {
+  0%, 25% { transform: rotate(0); }
+  75%, 100% { transform: rotate(180deg); }
+}
+
+@media (max-width: 1050px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .card { padding: 20px; }
+}
+
+@media (max-width: 800px) {
+  .container { padding: 20px 14px 0; }
+  .layout { grid-template-columns: 1fr; }
+  .brand h1 { font-size: 27px; }
+  .subtitle { font-size: 12px; }
+  .file-list { max-height: 300px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <header class="header">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">📚</div>
+      <div>
+        <h1>RAG-MD</h1>
+        <p class="subtitle">Поиск и анализ нормативной документации</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main class="left-column">
+      <section class="card" aria-labelledby="queryTitle">
+        <h2 id="queryTitle">Входные данные</h2>
+
+        <form id="queryForm">
+          <label for="question">Запрос</label>
+          <textarea
+            id="question"
+            placeholder="Например: какие требования предъявляются к испытаниям центробежных насосов после ремонта?"
+            required
+          ></textarea>
+
+          <div class="row">
+            <button class="primary" id="askBtn" type="submit">
+              Найти и сформировать ответ
+            </button>
+            <button class="secondary" id="clearBtn" type="button">
+              Очистить
+            </button>
+          </div>
+
+          <p class="hint">Ctrl + Enter — отправить запрос</p>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="answerTitle">
+        <h2 id="answerTitle">Ответ и источники</h2>
+        <div class="answer" id="answer" aria-live="polite">
+          <p>Задайте вопрос по нормативной базе. Здесь появится ответ и найденные фрагменты документов.</p>
+        </div>
+        <div class="sources" id="sources"></div>
+      </section>
+
+      <section
+        class="card error-panel"
+        id="errorPanel"
+        aria-labelledby="errorTitle"
+        hidden
+      >
+        <h2 id="errorTitle">Ошибка</h2>
+        <p id="errorMessage" role="alert"></p>
+
+        <details id="errorDetailsBlock" hidden>
+          <summary>Технические подробности</summary>
+          <pre class="error-details" id="errorDetails"></pre>
+        </details>
+
+        <div class="row">
+          <button class="secondary" id="dismissErrorBtn" type="button">
+            Скрыть сообщение
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <aside class="right-column" aria-label="Документы и загрузка">
+      <section class="card" aria-labelledby="filesTitle">
+        <div class="files-heading">
+          <h2 id="filesTitle">Файлы в базе</h2>
+          <div class="badge" id="collectionBadge" aria-live="polite">
+            Документов: …
+          </div>
+        </div>
+
+        <div class="file-list" id="fileList" aria-label="Список документов">
+          <p class="empty">Загрузка списка…</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="uploadTitle">
+        <h2 id="uploadTitle">Загрузка документа</h2>
+
+        <form id="uploadForm">
+          <div class="upload-zone" id="dropZone">
+            <label for="file">Выберите PDF, DjVu, TXT или MD</label>
+
+            <input
+              id="file"
+              type="file"
+              accept=".pdf,.djvu,.djv,.txt,.md"
+              aria-describedby="uploadHint selectedFile"
+            >
+
+            <p class="hint" id="uploadHint">
+              Можно перетащить один файл в эту область
+            </p>
+
+            <div
+              class="selected-file"
+              id="selectedFile"
+              aria-live="polite"
+            ></div>
+          </div>
+
+          <div class="row">
+            <button class="primary full-width" id="uploadBtn" type="submit">
+              Загрузить и проиндексировать
+            </button>
+          </div>
+        </form>
+
+        <p
+          class="status"
+          id="uploadStatus"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="footer">
+    2026, RAG-MD ver.0.2, all rights reserved.
+    contacts —
+    <a href="mailto:xander89ab@gmail.com">xander89ab@gmail.com</a>
+  </footer>
+</div>
+
+<div class="modal-overlay" id="indexingOverlay" hidden>
+  <section
+    class="modal"
+    id="indexingModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="indexingTitle"
+    aria-describedby="indexingDescription"
+    tabindex="-1"
+  >
+    <div class="hourglass" aria-hidden="true">⌛</div>
+    <h2 id="indexingTitle">Индексация документа</h2>
+    <p class="modal-file" id="indexingFile"></p>
+
+    <p class="modal-description" id="indexingDescription">
+      Файл передаётся на сервер и обрабатывается.
+      Дождитесь завершения и не закрывайте страницу.
+    </p>
+
+    <div class="elapsed" id="elapsedTime">Прошло: 00:00</div>
+
+    <p class="hint">
+      Время обработки зависит от объёма документа
+      и производительности сервера.
+    </p>
+  </section>
+</div>
+
+<script>
+"use strict";
+
+const FRONTEND_BUILD = "2026-10-15-upload-fix-3";
+
+const byId = id => document.getElementById(id);
+
+const ui = {
+  queryForm: byId("queryForm"),
+  question: byId("question"),
+  askButton: byId("askBtn"),
+  clearButton: byId("clearBtn"),
+  answer: byId("answer"),
+  sources: byId("sources"),
+  fileList: byId("fileList"),
+  badge: byId("collectionBadge"),
+  uploadForm: byId("uploadForm"),
+  fileInput: byId("file"),
+  dropZone: byId("dropZone"),
+  selectedFile: byId("selectedFile"),
+  uploadButton: byId("uploadBtn"),
+  uploadStatus: byId("uploadStatus"),
+  errorPanel: byId("errorPanel"),
+  errorTitle: byId("errorTitle"),
+  errorMessage: byId("errorMessage"),
+  errorDetailsBlock: byId("errorDetailsBlock"),
+  errorDetails: byId("errorDetails"),
+  dismissErrorButton: byId("dismissErrorBtn"),
+  overlay: byId("indexingOverlay"),
+  modal: byId("indexingModal"),
+  indexingFile: byId("indexingFile"),
+  elapsedTime: byId("elapsedTime")
+};
+
+const state = {
+  selectedFile: null,
+  asking: false,
+  uploading: false,
+  refreshing: false,
+  modalTimer: null,
+  statusTimer: null,
+  startedAt: 0,
+  previousFocus: null
+};
+
+class ApiError extends Error {
+  constructor(message, details = "") {
+    super(message);
+    this.name = "ApiError";
+    this.details = details;
+  }
+}
+
+function element(tag, className = "", text = "") {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== "") node.textContent = text;
+  return node;
+}
+
+function readable(value) {
+  if (typeof value === "string") return value;
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+async function requestJson(url, options = {}) {
+  let response;
+
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        Accept: "application/json",
+        ...(options.headers || {})
+      }
+    });
+  } catch {
+    throw new ApiError(
+      "Не удалось связаться с сервером.",
+      `${options.method || "GET"} ${url}\n` +
+      "Проверьте контейнер rag и соединение."
+    );
+  }
+
+  const raw = await response.text();
+  let data;
+
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new ApiError(
+      response.ok
+        ? "Сервер вернул ответ не в формате JSON."
+        : `Сервер вернул HTTP ${response.status}.`,
+      `${options.method || "GET"} ${url}\n` +
+      `${raw.slice(0, 8000) || "Пустой ответ"}\n\n` +
+      "Проверьте: docker compose logs --tail=100 rag"
+    );
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      data && data.detail
+        ? readable(data.detail)
+        : `Ошибка сервера: HTTP ${response.status}.`,
+      readable(data)
+    );
+  }
+
+  if (!data || typeof data !== "object") {
+    throw new ApiError("Неожиданный формат ответа сервера.", raw);
+  }
+
+  return data;
+}
+
+function showError(title, error, scroll = true) {
+  ui.errorTitle.textContent = title;
+  ui.errorMessage.textContent =
+    error.message || "Неизвестная ошибка.";
+
+  ui.errorDetails.textContent = [
+    `Frontend: ${FRONTEND_BUILD}`,
+    error.details || ""
+  ].filter(Boolean).join("\n\n");
+
+  ui.errorDetailsBlock.hidden = false;
+  ui.errorDetailsBlock.open = false;
+  ui.errorPanel.hidden = false;
+
+  if (scroll) {
+    ui.errorPanel.scrollIntoView({
+      block: "nearest",
+      behavior: "smooth"
+    });
+  }
+
+  console.error(title, error);
+}
+
+function hideError() {
+  ui.errorPanel.hidden = true;
+  ui.errorMessage.textContent = "";
+  ui.errorDetails.textContent = "";
+}
+
+function updateButtons() {
+  const busy = state.asking || state.uploading;
+
+  ui.askButton.disabled = busy;
+  ui.uploadButton.disabled = busy;
+  ui.clearButton.disabled = busy;
+  ui.fileInput.disabled = busy;
+
+  ui.askButton.textContent = state.asking
+    ? "Поиск и формирование ответа…"
+    : "Найти и сформировать ответ";
+
+  ui.uploadButton.textContent = state.uploading
+    ? "Идёт индексация…"
+    : "Загрузить и проиндексировать";
+}
+
+function documentUrl(path, page = null) {
+  const pathString = String(path || "");
+  const encoded = pathString
+    .split("/")
+    .map(part => encodeURIComponent(part))
+    .join("/");
+
+  let url = `/api/document/${encoded}`;
+  const number = Number(page);
+
+  if (
+    pathString.toLowerCase().endsWith(".pdf") &&
+    Number.isInteger(number) &&
+    number > 0
+  ) {
+    url += `#page=${number}`;
+  }
+
+  return url;
+}
+
+function fileSize(bytes) {
+  const size = Number(bytes);
+  if (!Number.isFinite(size)) return "Размер неизвестен";
+
+  return size < 1048576
+    ? `${(size / 1024).toFixed(1)} КБ`
+    : `${(size / 1048576).toFixed(2)} МБ`;
+}
+
+function fileDate(file) {
+  let value = file.modified_at ?? file.mtime;
+
+  if (value === undefined || value === null || value === "") {
+    return "Дата не передана";
+  }
+
+  if (
+    typeof value === "number" ||
+    (
+      typeof value === "string" &&
+      /^\d+(\.\d+)?$/.test(value)
+    )
+  ) {
+    value = Number(value);
+    if (value < 100000000000) value *= 1000;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Дата не передана";
+
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+/* Безопасное ограниченное форматирование Markdown. */
+function appendInline(parent, source, depth = 0) {
+  const text = String(source);
+
+  if (depth > 8) {
+    parent.append(document.createTextNode(text));
+    return;
+  }
+
+  const pattern =
+    /(`[^`\n]+`|\*\*[\s\S]+?\*\*|__[\s\S]+?__|\*[^*\n]+\*|_[^_\n]+_)/g;
+
+  let position = 0;
+
+  for (const tokenMatch of text.matchAll(pattern)) {
+    parent.append(
+      document.createTextNode(text.slice(position, tokenMatch.index))
+    );
+
+    const token = tokenMatch[0];
+    let node;
+
+    if (token.startsWith("`")) {
+      node = element("code", "", token.slice(1, -1));
+    } else if (
+      token.startsWith("**") ||
+      token.startsWith("__")
+    ) {
+      node = element("strong");
+      appendInline(node, token.slice(2, -2), depth + 1);
+    } else {
+      node = element("em");
+      appendInline(node, token.slice(1, -1), depth + 1);
+    }
+
+    parent.append(node);
+    position = tokenMatch.index + token.length;
+  }
+
+  parent.append(document.createTextNode(text.slice(position)));
+}
+
+function renderMarkdown(target, markdown) {
+  const lines = String(markdown)
+    .replace(/\r\n?/g, "\n")
+    .split("\n");
+
+  const output = document.createDocumentFragment();
+
+  let paragraph = [];
+  let list = null;
+  let lastItem = null;
+  let inCode = false;
+  let codeLines = [];
+
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    const p = element("p");
+    appendInline(p, paragraph.join("\n"));
+    output.append(p);
+    paragraph = [];
+  }
+
+  function closeList() {
+    list = null;
+    lastItem = null;
+  }
+
+  function flushCode() {
+    const pre = element("pre");
+    pre.append(element("code", "", codeLines.join("\n")));
+    output.append(pre);
+    codeLines = [];
+  }
+
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      flushParagraph();
+      closeList();
+      if (inCode) flushCode();
+      inCode = !inCode;
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      continue;
+    }
+
+    const heading = line.match(/^\s{0,3}(#{1,6})\s+(.+)$/);
+    const ordered = line.match(/^\s*(\d+)[.)]\s+(.+)$/);
+    const unordered = line.match(/^\s*[-+*]\s+(.+)$/);
+    const quote = line.match(/^\s*>\s?(.*)$/);
+
+    if (heading) {
+      flushParagraph();
+      closeList();
+      const level = Math.min(6, heading.length + 2);[1]
+      const h = element(`h${level}`);
+      appendInline(h, heading.replace(/\s+#+\s*$/, ""));[2]
+      output.append(h);
+      continue;
+    }
+
+    if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) {
+      flushParagraph();
+      closeList();
+      output.append(element("hr"));
+      continue;
+    }
+
+    if (ordered || unordered) {
+      flushParagraph();
+      const type = ordered ? "OL" : "UL";
+
+      if (!list || list.tagName !== type) {
+        list = element(type.toLowerCase());
+        if (ordered) list.start = Number(ordered[1]) || 1;
+        output.append(list);
+      }
+
+      lastItem = element("li");
+      appendInline(lastItem, ordered ? ordered : unordered);[1][2]
+      list.append(lastItem);
+      continue;
+    }
+
+    if (quote) {
+      flushParagraph();
+      closeList();
+      const blockquote = element("blockquote");
+      appendInline(blockquote, quote);[1]
+      output.append(blockquote);
+      continue;
+    }
+
+    if (list && lastItem && /^\s{2,}\S/.test(line)) {
+      lastItem.append(document.createTextNode(" "));
+      appendInline(lastItem, line.trim());
+      continue;
+    }
+
+    closeList();
+    paragraph.push(line);
+  }
+
+  if (inCode) flushCode();
+  flushParagraph();
+  target.replaceChildren(output);
+}
+
+async function refreshFiles({ quiet = false } = {}) {
+  if (state.refreshing || state.uploading) return;
+
+  state.refreshing = true;
+
+  try {
+    const data = await requestJson("/api/files", {
+      cache: "no-store"
+    });
+
+    if (!Array.isArray(data.files)) {
+      throw new ApiError("Некорректный список файлов.", readable(data));
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (const file of data.files) {
+      const path = file.relative_path || file.name;
+      if (!path) continue;
+
+      const link = element("a", "file-item");
+      link.href = documentUrl(path);
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.title = `Открыть ${path}\nИзменён: ${fileDate(file)}`;
+
+      const info = element("div", "file-info");
+      info.append(element("span", "file-name", file.name || path));
+
+      const size = Number(file.size_mb);
+      const sizeText = Number.isFinite(size)
+        ? `${size.toFixed(2)} МБ`
+        : "Размер неизвестен";
+
+      info.append(
+        element("span", "file-meta", `${sizeText} · ${fileDate(file)}`)
+      );
+
+      link.append(info, element("span", "file-type", file.type || "FILE"));
+      fragment.append(link);
+    }
+
+    if (!fragment.childNodes.length) {
+      fragment.append(element("p", "empty", "Документы не найдены."));
+    }
+
+    const scrollTop = ui.fileList.scrollTop;
+    ui.fileList.replaceChildren(fragment);
+    ui.fileList.scrollTop = scrollTop;
+    ui.badge.textContent =
+      `Документов: ${data.total ?? data.files.length}`;
+
+  } catch (error) {
+    if (!quiet) {
+      ui.fileList.replaceChildren(
+        element("p", "empty", "Не удалось получить список файлов.")
+      );
+      ui.badge.textContent = "Список недоступен";
+      showError("Ошибка получения списка файлов", error, false);
+    }
+  } finally {
+    state.refreshing = false;
+  }
+}
+
+function setUploadStatus(message, type = "", autoHide = false) {
+  window.clearTimeout(state.statusTimer);
+  ui.uploadStatus.textContent = message;
+  ui.uploadStatus.className = `status ${type}`.trim();
+
+  if (autoHide) {
+    state.statusTimer = window.setTimeout(() => {
+      ui.uploadStatus.textContent = "";
+      ui.uploadStatus.className = "status";
+    }, 10000);
+  }
+}
+
+/*
+ * Проверка расширения без match().
+ * Возвращает строку имени, которую передадим серверу.
+ */
+function validateFile(file) {
+  if (
+    !file ||
+    typeof file.name !== "string" ||
+    typeof file.slice !== "function"
+  ) {
+    throw new ApiError("Не выбран корректный файл.");
+  }
+
+  const cleanName = String(file.name)
+    .normalize("NFC")
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .trim();
+
+  const dotPosition = cleanName.lastIndexOf(".");
+
+  const extension = dotPosition >= 0
+    ? cleanName.slice(dotPosition + 1).trim().toLowerCase()
+    : "";
+
+  const allowed = ["pdf", "djvu", "djv", "txt", "md"];
+
+  if (!allowed.includes(extension)) {
+    throw new ApiError(
+      "Неподдерживаемое расширение. Выберите PDF, DjVu, TXT или MD.",
+      [
+        `Имя: ${JSON.stringify(file.name)}`,
+        `Нормализованное имя: ${JSON.stringify(cleanName)}`,
+        `Расширение: ${extension || "отсутствует"}`,
+        `MIME: ${file.type || "не передан"}`,
+        `Размер: ${file.size} байт`
+      ].join("\n")
+    );
+  }
+
+  if (file.size === 0) {
+    throw new ApiError("Выбранный файл имеет нулевой размер.");
+  }
+
+  const stem = cleanName.slice(0, dotPosition).trim() || "document";
+  const uploadName = `${stem}.${extension}`.replace(/[\/\\]/g, "_");
+
+  return uploadName;
+}
+
+function selectFile(file) {
+  try {
+    validateFile(file);
+
+    state.selectedFile = file;
+    ui.selectedFile.textContent =
+      `${file.name} · ${fileSize(file.size)}`;
+
+    setUploadStatus("");
+    hideError();
+
+  } catch (error) {
+    state.selectedFile = null;
+    ui.fileInput.value = "";
+    ui.selectedFile.textContent = "";
+    showError("Ошибка выбора документа", error);
+  }
+}
+
+function updateElapsed() {
+  const seconds = Math.floor((Date.now() - state.startedAt) / 1000);
+  ui.elapsedTime.textContent =
+    `Прошло: ${String(Math.floor(seconds / 60)).padStart(2, "0")}:` +
+    String(seconds % 60).padStart(2, "0");
+}
+
+function openModal(name) {
+  state.previousFocus = document.activeElement;
+  state.startedAt = Date.now();
+
+  ui.indexingFile.textContent = name;
+  ui.overlay.hidden = false;
+  document.body.classList.add("modal-open");
+  document.querySelector(".container").inert = true;
+
+  updateElapsed();
+  window.clearInterval(state.modalTimer);
+  state.modalTimer = window.setInterval(updateElapsed, 1000);
+  ui.modal.focus();
+}
+
+function closeModal() {
+  window.clearInterval(state.modalTimer);
+  state.modalTimer = null;
+
+  ui.overlay.hidden = true;
+  document.body.classList.remove("modal-open");
+  document.querySelector(".container").inert = false;
+
+  if (
+    state.previousFocus &&
+    typeof state.previousFocus.focus === "function"
+  ) {
+    state.previousFocus.focus();
+  }
+}
+
+async function uploadDocument(event) {
+  event.preventDefault();
+  if (state.uploading || state.asking) return;
+
+  // Единственный источник выбранного файла — state.selectedFile.
+  const file = state.selectedFile;
+
+  if (!file) {
+    showError(
+      "Файл не выбран",
+      new ApiError(
+        "Выберите документ кнопкой «Выберите файл» или перетащите его в область загрузки."
+      )
+    );
+    return;
+  }
+
+  let uploadName;
+
+  try {
+    uploadName = validateFile(file);
+  } catch (error) {
+    showError("Ошибка выбора документа", error);
+    return;
+  }
+
+  hideError();
+  state.uploading = true;
+  updateButtons();
+  setUploadStatus("Ожидание результата индексации…");
+  openModal(file.name);
+
+  const body = new FormData();
+  body.append("file", file, uploadName);
+
+  let failure = null;
+
+  try {
+    const data = await requestJson("/upload", {
+      method: "POST",
+      body
+    });
+
+    if (Array.isArray(data.errors) && data.errors.length) {
+      throw new ApiError("Ошибка индексации.", readable(data.errors));
+    }
+
+    const name = data.saved || uploadName;
+    const chunks = Number(data.chunks);
+
+    if (data.status === "empty") {
+      throw new ApiError(
+        "Не удалось извлечь текст из документа.",
+        data.reason || readable(data)
+      );
+    }
+
+    if (data.status === "skipped") {
+      setUploadStatus(
+        `«${name}» уже проиндексирован. Повторная обработка не выполнялась.`,
+        "ok",
+        true
+      );
+    } else if (
+      data.status === "indexed" ||
+      (Number.isFinite(chunks) && chunks > 0)
+    ) {
+      setUploadStatus(
+        `«${name}» успешно проиндексирован. Фрагментов: ${
+          Number.isFinite(chunks) ? chunks : "—"
+        }.`,
+        "ok",
+        true
+      );
+    } else {
+      throw new ApiError(
+        "Сервер не подтвердил успешную индексацию.",
+        readable(data)
+      );
+    }
+
+  } catch (error) {
+    failure = error;
+    setUploadStatus(
+      "Индексация не завершена. Подробности — в блоке ошибок.",
+      "error"
+    );
+  } finally {
+    state.uploading = false;
+    updateButtons();
+    closeModal();
+  }
+
+  if (failure) {
+    showError("Ошибка индексации документа", failure);
+  }
+
+  await refreshFiles({ quiet: true });
+}
+
+function renderSources(sources) {
+  const fragment = document.createDocumentFragment();
+
+  sources.forEach((source, index) => {
+    const article = element("article", "source");
+    article.id = `source-${index + 1}`;
+
+    const header = element("div", "source-head");
+    const info = element("div");
+
+    info.append(
+      element(
+        "div",
+        "source-title",
+        `[${index + 1}] ${source.file_name || "Документ"}`
+      )
+    );
+
+    const metadata = [];
+    const chunk = Number(source.chunk);
+    const page = Number(source.page);
+    const score = Number(source.score);
+
+    if (Number.isInteger(chunk) && chunk >= 0) {
+      metadata.push(`Фрагмент ${chunk + 1}`);
+    }
+    if (Number.isInteger(page) && page > 0) {
+      metadata.push(`Страница файла ${page}`);
+    }
+    if (source.section) {
+      metadata.push(`Пункт ${source.section}`);
+    }
+    if (Number.isFinite(score)) {
+      metadata.push(`Сходство: ${score.toFixed(3)}`);
+    }
+
+    info.append(element("div", "file-meta", metadata.join(" · ")));
+    header.append(info);
+
+    if (source.file) {
+      const isPdf = String(source.file).toLowerCase().endsWith(".pdf");
+
+      const link = element(
+        "a",
+        "page-link",
+        isPdf && Number.isInteger(page) && page > 0
+          ? `Открыть страницу ${page} ↗`
+          : "Открыть документ ↗"
+      );
+
+      link.href = documentUrl(source.file, page);
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      header.append(link);
+    }
+
+    article.append(
+      header,
+      element("pre", "source-text", source.text || "Текст отсутствует.")
+    );
+
+    fragment.append(article);
+  });
+
+  if (!sources.length) {
+    fragment.append(element("p", "hint", "Сервер не вернул источники."));
+  }
+
+  ui.sources.replaceChildren(fragment);
+}
+
+async function askQuestion(event) {
+  event.preventDefault();
+  if (state.asking || state.uploading) return;
+
+  const question = ui.question.value.trim();
+
+  if (!question) {
+    ui.question.focus();
+    return;
+  }
+
+  hideError();
+  state.asking = true;
+  updateButtons();
+
+  ui.answer.classList.remove("is-error");
+  ui.answer.setAttribute("aria-busy", "true");
+  ui.answer.textContent = "Выполняется поиск и формируется ответ…";
+  ui.sources.replaceChildren();
+
+  try {
+    const data = await requestJson("/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, top_k: 8 })
+    });
+
+    renderMarkdown(
+      ui.answer,
+      data.answer || "Сервер не вернул текст ответа."
+    );
+
+    renderSources(Array.isArray(data.sources) ? data.sources : []);
+
+  } catch (error) {
+    ui.answer.classList.add("is-error");
+    ui.answer.textContent =
+      "Не удалось сформировать ответ. Подробности — в блоке ошибок.";
+    showError("Ошибка поиска или генерации ответа", error);
+  } finally {
+    state.asking = false;
+    ui.answer.removeAttribute("aria-busy");
+    updateButtons();
+  }
+}
+
+/* Все обработчики регистрируются один раз. */
+ui.queryForm.addEventListener("submit", askQuestion);
+ui.uploadForm.addEventListener("submit", uploadDocument);
+ui.dismissErrorButton.addEventListener("click", hideError);
+
+ui.clearButton.addEventListener("click", () => {
+  if (state.asking || state.uploading) return;
+
+  ui.question.value = "";
+  ui.answer.classList.remove("is-error");
+  ui.answer.textContent =
+    "Задайте вопрос по нормативной базе. Здесь появится ответ и найденные фрагменты документов.";
+
+  ui.sources.replaceChildren();
+  hideError();
+  ui.question.focus();
+});
+
+ui.question.addEventListener("keydown", event => {
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    if (!state.asking && !state.uploading) {
+      ui.queryForm.requestSubmit();
+    }
+  }
+});
+
+ui.fileInput.addEventListener("change", event => {
+  const files = event.currentTarget.files;
+
+  if (!files || files.length === 0) {
+    state.selectedFile = null;
+    ui.selectedFile.textContent = "";
+    return;
+  }
+
+  selectFile(files[0]);
+});
+
+["dragenter", "dragover"].forEach(type => {
+  ui.dropZone.addEventListener(type, event => {
+    event.preventDefault();
+
+    if (!state.uploading && !state.asking) {
+      ui.dropZone.classList.add("dragover");
+    }
+  });
+});
+
+ui.dropZone.addEventListener("dragleave", event => {
+  const related = event.relatedTarget;
+
+  if (!(related instanceof Node) || !ui.dropZone.contains(related)) {
+    ui.dropZone.classList.remove("dragover");
+  }
+});
+
+ui.dropZone.addEventListener("drop", event => {
+  event.preventDefault();
+  ui.dropZone.classList.remove("dragover");
+
+  if (state.uploading || state.asking) return;
+
+  const files = event.dataTransfer
+    ? event.dataTransfer.files
+    : null;
+
+  if (!files || files.length === 0) return;
+
+  if (files.length !== 1) {
+    showError(
+      "Выберите один документ",
+      new ApiError("Файлы загружаются по одному.")
+    );
+    return;
+  }
+
+  ui.fileInput.value = "";
+  selectFile(files[0]);
+});
+
+document.addEventListener("keydown", event => {
+  if (state.uploading && ["Escape", "Tab"].includes(event.key)) {
+    event.preventDefault();
+    ui.modal.focus();
+  }
+});
+
+window.addEventListener("beforeunload", event => {
+  if (state.uploading) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
+window.setInterval(() => {
+  if (!document.hidden && !state.uploading && !state.asking) {
+    refreshFiles({ quiet: true });
+  }
+}, 30000);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !state.uploading) {
+    refreshFiles({ quiet: true });
+  }
+});
+
+console.info("RAG-MD frontend:", FRONTEND_BUILD);
+
+updateButtons();
+refreshFiles();
+</script>
+</body>
+</html>

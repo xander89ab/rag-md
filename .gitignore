@@ -1,0 +1,35 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Private documents, generated text, vector database and backups
+/docs/
+/processed/
+/qdrant_storage/
+/backup/
+
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp
+*.log
+
+# Local release archives
+/dist/
