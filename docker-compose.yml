@@ -105,7 +105,8 @@ services:
       OLLAMA_URL: "http://ollama:11434"
 
       EMBED_MODEL: "${EMBED_MODEL:-intfloat/multilingual-e5-small}"
-      LLM_MODEL: "${LLM_MODEL:-qwen2.5:3b-instruct}"
+      LLM_MODEL: "${LLM_MODEL:-qwen3.5:9b-q4_K_M}"
+      LLM_CONTEXT_SIZE: "${LLM_CONTEXT_SIZE:-16384}"
       COLLECTION: "${COLLECTION:-normative_docs_v2}"
 
       DOCS_DIR: "/data/docs"

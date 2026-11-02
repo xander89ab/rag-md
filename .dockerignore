@@ -11,6 +11,7 @@ backup/
 __pycache__/
 *.py[cod]
 .venv/
+.test-deps/
 venv/
 .pytest_cache/
 .mypy_cache/
@@ -18,4 +19,5 @@ venv/
 .idea/
 .vscode/
 dist/
+output/
 .git/

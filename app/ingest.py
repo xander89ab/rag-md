@@ -15,6 +15,7 @@ from qdrant_client.models import (
 )
 
 from .ocr import extract_text
+from .documents import document_files
 
 
 def clean_text(text: str) -> str:
@@ -75,11 +76,13 @@ def split_text(
     return chunks
 
 
-def file_hash(path: Path) -> str:
+def file_hash(path: Path, progress=None) -> str:
     digest = hashlib.sha256()
 
     with path.open("rb") as file:
         for block in iter(lambda: file.read(1024 * 1024), b""):
+            if progress:
+                progress("hashing")
             digest.update(block)
 
     return digest.hexdigest()
@@ -108,6 +111,7 @@ def load_or_extract(
     path: Path,
     digest: str,
     processed_dir: Path,
+    progress=None,
 ) -> str | list[tuple[int, str]]:
     cache_file = processed_dir / f"{path.stem}_{digest[:12]}.json"
 
@@ -121,7 +125,7 @@ def load_or_extract(
             for item in cached
         ]
 
-    extracted = extract_text(path)
+    extracted = extract_text(path, progress=progress)
 
     if isinstance(extracted, str):
         serialized = [
@@ -224,6 +228,7 @@ def ingest_single_file(
     embedder,
     embed_batch_size: int = 8,
     force_reindex: bool = False,
+    progress=None,
 ) -> dict:
     docs_dir = docs_dir.resolve()
     processed_dir = processed_dir.resolve()
@@ -235,7 +240,12 @@ def ingest_single_file(
     if not file_path.is_file():
         raise FileNotFoundError(f"Файл не найден: {file_path}")
 
-    digest = file_hash(file_path)
+    def report(stage, done=0, total=0):
+        if progress:
+            progress(stage, done, total)
+
+    report("hashing")
+    digest = file_hash(file_path, progress)
     relative_path = str(
         file_path.relative_to(docs_dir)
     ).replace("\\", "/")
@@ -273,10 +283,12 @@ def ingest_single_file(
         digest,
     )
 
+    report("extracting")
     extracted = load_or_extract(
         path=file_path,
         digest=digest,
         processed_dir=processed_dir,
+        progress=progress,
     )
 
     page_chunks = prepare_chunks(
@@ -299,12 +311,17 @@ def ingest_single_file(
         for _, chunk in page_chunks
     ]
 
-    vectors = embedder.encode(
-        texts,
-        batch_size=embed_batch_size,
-        normalize_embeddings=True,
-        show_progress_bar=False,
-    )
+    vectors = []
+    for start in range(0, len(texts), embed_batch_size):
+        report("embedding", start, len(texts))
+        batch = embedder.encode(
+            texts[start:start + embed_batch_size],
+            batch_size=embed_batch_size,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        vectors.extend(batch)
+        report("embedding", min(start + embed_batch_size, len(texts)), len(texts))
 
     points: list[PointStruct] = []
 
@@ -329,6 +346,7 @@ def ingest_single_file(
             )
         )
 
+    report("saving")
     client.upsert(
         collection_name=collection,
         points=points,
@@ -365,12 +383,7 @@ def ingest_directory(
         ".md",
     }
 
-    files = [
-        path
-        for path in docs_path.rglob("*")
-        if path.is_file()
-        and path.suffix.lower() in allowed_extensions
-    ]
+    files = document_files(docs_path)
 
     indexed_files = 0
     skipped_files = 0

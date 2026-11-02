@@ -15,278 +15,95 @@ $jsVersion = is_file($jsPath) ? (string) filemtime($jsPath) : '1';
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f97316">
-<title>RAG-MD — поиск по нормативной базе</title>
-
+<meta name="theme-color" content="#181b27">
+<title>RAG-MD — диалоги по документам</title>
 <link rel="stylesheet" href="/assets/css/styles.css?v=<?= $cssVersion ?>">
 </head>
-
 <body>
-<div class="container">
-  <header class="header">
-    <div class="brand">
-      <div class="logo" aria-hidden="true">📚</div>
-      <div>
-        <h1>RAG-MD</h1>
-        <p class="subtitle">Поиск и анализ нормативной документации</p>
+<div class="container app-shell">
+  <aside class="history-sidebar" id="historySidebar" aria-label="История диалогов">
+    <a class="brand" href="/" aria-label="RAG-MD — главная">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#brand"></use></svg>
+      <span><strong>RAG-MD</strong><small>Диалоги по документам</small></span>
+    </a>
+    <button class="primary new-chat" id="clearBtn" type="button"><span aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#plus"></use></svg></span> Новый диалог</button>
+    <div class="sidebar-heading"><h2>История диалогов</h2><button id="clearHistoryBtn" class="icon-button" type="button" title="Удалить все диалоги" aria-label="Удалить все диалоги"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#trash"></use></svg></button></div>
+    <p class="sidebar-caption">Сохраняется в этом браузере</p>
+    <nav id="historyList" class="history-list" aria-label="Сохранённые диалоги"></nav>
+    <div class="sidebar-footer"><span class="local-indicator"></span> Локальная база знаний<small>PDF · DjVu · TXT · Markdown</small></div>
+  </aside>
+
+  <main class="workspace">
+    <header class="workspace-header">
+      <button class="icon-button mobile-toggle" id="historyMenuBtn" type="button" aria-controls="historySidebar" aria-expanded="false" aria-label="Открыть историю"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#menu"></use></svg></button>
+      <div class="workspace-heading"><p class="eyebrow">ВАШ АССИСТЕНТ ПО ДОКУМЕНТАМ</p><h1 id="conversationTitle">Новый диалог</h1></div>
+      <button class="icon-button" id="deleteChatBtn" type="button" title="Удалить текущий диалог" aria-label="Удалить текущий диалог" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#trash"></use></svg></button>
+      <button class="icon-button mobile-toggle" id="toolsMenuBtn" type="button" aria-controls="evidencePanel" aria-expanded="false" aria-label="Открыть источники и файлы"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#grid"></use></svg></button>
+    </header>
+    <div class="conversation-scroll" id="conversationScroll">
+      <div class="welcome" id="welcome">
+        <div class="welcome-mark" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#spark"></use></svg></div>
+        <p class="eyebrow">ОТ ВОПРОСА К ИСТОЧНИКУ</p>
+        <h2>Разберёмся в документах</h2>
+        <p>Задайте вопрос по вашей базе. Уточняйте детали в этом же диалоге — ассистент учтёт предыдущие сообщения.</p>
+        <div class="suggestions">
+          <button type="button" data-question="Какие требования предъявляются к испытаниям оборудования после ремонта?">Требования к испытаниям <span>↗</span></button>
+          <button type="button" data-question="Какие документы нужны для приёмки оборудования?">Документы для приёмки <span>↗</span></button>
+        </div>
       </div>
+      <div class="chat-stream" id="chatStream" aria-label="Переписка"></div>
+      <section class="error-panel" id="errorPanel" aria-labelledby="errorTitle" hidden>
+        <h2 id="errorTitle">Ошибка</h2><p id="errorMessage" role="alert"></p>
+        <details id="errorDetailsBlock" hidden><summary>Технические подробности</summary><pre id="errorDetails"></pre></details>
+        <button class="secondary" id="dismissErrorBtn" type="button">Скрыть сообщение</button>
+      </section>
     </div>
-  </header>
-
-  <div class="layout">
-    <main class="left-column">
-      <section class="card" aria-labelledby="queryTitle">
-        <h2 id="queryTitle">Входные данные</h2>
-
-        <form id="queryForm">
-          <label for="question">Запрос</label>
-          <textarea
-            id="question"
-            placeholder="Например: какие требования предъявляются к испытаниям центробежных насосов после ремонта?"
-            required
-          ></textarea>
-
-          <div class="row">
-            <button class="primary" id="askBtn" type="submit">
-              Найти и сформировать ответ
-            </button>
-            <button class="secondary" id="clearBtn" type="button">
-              Очистить
-            </button>
-          </div>
-
-          <p class="hint">Ctrl + Enter — отправить запрос</p>
-        </form>
-      </section>
-
-      <section class="card" aria-labelledby="answerTitle">
-        <h2 id="answerTitle">Ответ и источники</h2>
-        <div class="answer" id="answer" aria-live="polite">
-          <p>Задайте вопрос по нормативной базе. Здесь появится ответ и найденные фрагменты документов.</p>
-        </div>
-        <div class="sources" id="sources"></div>
-      </section>
-
-      <section
-        class="card error-panel"
-        id="errorPanel"
-        aria-labelledby="errorTitle"
-        hidden
-      >
-        <h2 id="errorTitle">Ошибка</h2>
-        <p id="errorMessage" role="alert"></p>
-
-        <details id="errorDetailsBlock" hidden>
-          <summary>Технические подробности</summary>
-          <pre class="error-details" id="errorDetails"></pre>
-        </details>
-
-        <div class="row">
-          <button class="secondary" id="dismissErrorBtn" type="button">
-            Скрыть сообщение
-          </button>
-        </div>
-      </section>
-    </main>
-
-<aside class="right-column" aria-label="Документы и загрузка">
-
-  <!-- База файлов: по умолчанию свёрнута -->
-  <section
-    class="card collapsible-card"
-    aria-labelledby="filesTitle"
-  >
-    <h2 class="collapse-heading" id="filesTitle">
-      <button
-        class="collapse-toggle"
-        id="filesToggle"
-        type="button"
-        aria-expanded="false"
-        aria-controls="filesPanel"
-      >
-        <span class="collapse-label">База файлов</span>
-
-        <span class="collapse-actions">
-          <span
-            class="badge"
-            id="collectionBadge"
-            aria-live="polite"
-          >
-            Документов: …
-          </span>
-
-          <span class="collapse-chevron" aria-hidden="true"></span>
-        </span>
-      </button>
-    </h2>
-
-    <div
-      class="collapse-panel"
-      id="filesPanel"
-      role="region"
-      aria-labelledby="filesTitle"
-      hidden
-    >
-
-	<div class="file-search">
-  <label class="visually-hidden" for="fileSearch">
-    Поиск по именам файлов и папкам
-  </label>
-
-  <div class="file-search-control">
-    <span class="file-search-icon" aria-hidden="true">⌕</span>
-
-    <input
-      id="fileSearch"
-      type="search"
-      placeholder="Найти файл или папку…"
-      autocomplete="off"
-      spellcheck="false"
-      aria-controls="fileList"
-      aria-describedby="fileSearchStatus"
-    >
-
-    <button
-      id="clearFileSearch"
-      class="file-search-clear"
-      type="button"
-      aria-label="Очистить поиск файлов"
-      title="Очистить поиск"
-      hidden
-    >
-      ×
-    </button>
-  </div>
-
-  <p
-    id="fileSearchStatus"
-    class="file-search-status"
-    role="status"
-    aria-live="polite"
-    hidden
-  ></p>
-</div>
-
-      <div
-        class="file-list"
-        id="fileList"
-        aria-label="Список документов"
-      >
-        <p class="empty">Загрузка списка…</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Загрузка документа: по умолчанию свёрнута -->
-  <section
-    class="card collapsible-card"
-    aria-labelledby="uploadTitle"
-  >
-    <h2 class="collapse-heading" id="uploadTitle">
-      <button
-        class="collapse-toggle"
-        id="uploadToggle"
-        type="button"
-        aria-expanded="false"
-        aria-controls="uploadPanel"
-      >
-        <span class="collapse-label">Загрузка документа</span>
-
-        <span class="collapse-actions">
-          <span class="collapse-chevron" aria-hidden="true"></span>
-        </span>
-      </button>
-    </h2>
-
-    <div
-      class="collapse-panel"
-      id="uploadPanel"
-      role="region"
-      aria-labelledby="uploadTitle"
-      hidden
-    >
-      <form id="uploadForm">
-        <div class="upload-zone" id="dropZone">
-          <label for="file">
-            Выберите PDF, DjVu, TXT или MD
-          </label>
-
-          <input
-            id="file"
-            type="file"
-            accept=".pdf,.djvu,.djv,.txt,.md"
-            aria-describedby="uploadHint selectedFile"
-          >
-
-          <p class="hint" id="uploadHint">
-            Можно перетащить один файл в эту область
-          </p>
-
-          <div
-            class="selected-file"
-            id="selectedFile"
-            aria-live="polite"
-          ></div>
-        </div>
-
-        <div class="row">
-          <button
-            class="primary full-width"
-            id="uploadBtn"
-            type="submit"
-          >
-            Загрузить и проиндексировать
-          </button>
-        </div>
+    <div class="composer-area">
+      <p class="storage-notice" id="storageNotice" role="status" hidden></p>
+      <form id="queryForm" class="composer"><div class="composer-label"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#chat"></use></svg><span>Запрос</span></div>
+        <label class="visually-hidden" for="question">Запрос</label>
+        <textarea id="question" maxlength="2000" rows="2" placeholder="Задайте вопрос или уточните предыдущий ответ…" required></textarea>
+        <div class="composer-toolbar"><span class="context-indicator"><span></span> Контекст диалога включён</span><button class="primary" id="askBtn" type="submit">Отправить <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#send"></use></svg></button></div>
       </form>
-
-      <p
-        class="status"
-        id="uploadStatus"
-        role="status"
-        aria-live="polite"
-      ></p>
+      <div class="composer-hint"><span>Ctrl + Enter — отправить</span><span>Проверяйте ответ по источникам</span></div>
     </div>
-  </section>
+  </main>
 
-</aside>
-  </div>
-
-  <footer class="footer">
-    2026, RAG-MD ver.0.4a, all rights reserved.
-    contacts —
-    <a href="mailto:xander89ab@gmail.com">xander89ab@gmail.com</a>
-  </footer>
+  <aside class="evidence-panel" id="evidencePanel" aria-label="Источники и база файлов">
+    <div class="evidence-heading"><h2><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#inspection"></use></svg> Проверка источников</h2><span class="count-badge" id="sourceCount">0</span></div>
+    <section class="utility-card relevance-card" aria-labelledby="relevanceTitle">
+      <h3 id="relevanceTitle"><button class="collapse-toggle" id="relevanceToggle" type="button" aria-expanded="false" aria-controls="relevancePanel"><span><span class="section-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#chart"></use></svg></span> Релевантность источников</span><span class="chevron" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#chevron"></use></svg></span></button></h3>
+      <div id="relevancePanel" hidden>
+      <p class="panel-caption" id="chartCaption">Источники выбранного ответа</p>
+      <div id="relevanceChart" class="relevance-chart"><p class="empty">После ответа здесь появится сравнение источников.</p></div>
+      <p class="metric-note">Сходство с запросом, а не точность ответа</p>
+      </div>
+    </section>
+    <section class="utility-card" aria-labelledby="filesTitle">
+      <h3 id="filesTitle"><button class="collapse-toggle" id="filesToggle" type="button" aria-expanded="true" aria-controls="filesPanel"><span><span class="section-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#folder"></use></svg></span> База файлов</span><span class="count-badge" id="collectionBadge">Документов: …</span><span class="chevron" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#chevron"></use></svg></span></button></h3>
+      <div id="filesPanel">
+        <div class="file-search"><label class="visually-hidden" for="fileSearch">Поиск по файлам и папкам</label><div class="file-search-control"><span aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#search"></use></svg></span><input id="fileSearch" type="search" placeholder="Поиск по файлам…" autocomplete="off" aria-controls="fileList"><button id="clearFileSearch" type="button" class="icon-button" aria-label="Очистить поиск файлов" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#close"></use></svg></button></div><p id="fileSearchStatus" class="hint" role="status" hidden></p></div>
+        <div class="file-list" id="fileList" aria-label="Список документов"><p class="empty">Загрузка списка…</p></div><div class="files-resize-handle" id="filesResizeHandle" role="separator" tabindex="0" aria-orientation="horizontal" aria-controls="fileList" aria-label="Изменить высоту списка файлов" aria-valuemin="160" aria-valuemax="1600" title="Потяните вниз или используйте стрелки вверх и вниз"><span aria-hidden="true"></span></div><p class="files-resize-hint">Потяните за ручку, чтобы изменить высоту</p>
+      </div>
+    </section>
+    <section class="utility-card" aria-labelledby="uploadTitle">
+      <h3 id="uploadTitle"><button class="collapse-toggle" id="uploadToggle" type="button" aria-expanded="false" aria-controls="uploadPanel"><span><span class="section-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#upload"></use></svg></span> Загрузка файлов</span><span class="chevron" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#chevron"></use></svg></span></button></h3>
+      <div id="uploadPanel" hidden><form id="uploadForm">
+        <div class="upload-zone" id="dropZone"><span class="upload-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#cloud"></use></svg></span><label for="file">Перетащите документ</label><p>PDF · DjVu · TXT · MD</p><input class="file-input" id="file" type="file" accept=".pdf,.djvu,.djv,.txt,.md" aria-describedby="selectedFile"><label class="file-picker" for="file">Выбрать файл</label><div class="selected-file" id="selectedFile" aria-live="polite"></div></div>
+        <button class="secondary full-width" id="uploadBtn" type="submit">Загрузить и индексировать</button>
+      </form><p class="status" id="uploadStatus" role="status"></p></div>
+    </section>
+    <section class="utility-card indexing-card" aria-labelledby="indexingTitle">
+      <div class="section-heading"><span class="section-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#database"></use></svg></span><h3 id="indexingTitle">Индексация базы</h3></div>
+      <div class="indexing-summary" aria-label="Сводка индексации"><strong id="indexingSummaryValue">— / —</strong><span id="indexingSummaryHint">проиндексировано / всего документов</span></div>
+      <p class="indexing-state" id="indexingState" role="status">Готова к работе</p>
+      <p class="indexing-count" id="indexingCount" hidden></p><div id="indexingProgress" class="indeterminate" role="progressbar" aria-label="Ход индексации" hidden><span></span></div>
+      <p class="panel-caption" id="indexingFile">Новые файлы индексируются при загрузке.</p><p class="hint" id="elapsedTime" hidden></p><p class="indexing-eta" id="indexingEta" role="status" hidden>Оцениваем время…</p><div class="indexing-actions"><button class="secondary" id="pauseIndexingBtn" type="button" hidden><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/assets/icons.svg#pause"></use></svg><span>Пауза</span></button></div>
+      <button class="secondary full-width" id="reindexBtn" type="button">Обновить индекс базы</button>
+    </section>
+  </aside>
 </div>
-
-<div class="modal-overlay" id="indexingOverlay" hidden>
-  <section
-    class="modal"
-    id="indexingModal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="indexingTitle"
-    aria-describedby="indexingDescription"
-    tabindex="-1"
-  >
-    <div class="hourglass" aria-hidden="true">⌛</div>
-    <h2 id="indexingTitle">Индексация документа</h2>
-    <p class="modal-file" id="indexingFile"></p>
-
-    <p class="modal-description" id="indexingDescription">
-      Файл передаётся на сервер и обрабатывается.
-      Дождитесь завершения и не закрывайте страницу.
-    </p>
-
-    <div class="elapsed" id="elapsedTime">Прошло: 00:00</div>
-
-    <p class="hint">
-      Время обработки зависит от объёма документа
-      и производительности сервера.
-    </p>
-  </section>
-</div>
-
-<script src="/assets/js/app.js?v=<?= $jsVersion ?>" defer></script>
+<script src="/assets/js/jquery-4.0.0.min.js" defer></script>
+<script src="/assets/js/app.js?v=20261031-dialog" defer></script>
 </body>
 </html>

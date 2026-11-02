@@ -8,7 +8,9 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def extract_djvu_text(path: Path) -> str:
+def extract_djvu_text(path: Path, progress=None) -> str:
+    if progress:
+        progress("extracting")
     result = subprocess.run(
         ["djvutxt", str(path)],
         capture_output=True,
@@ -22,6 +24,8 @@ def extract_djvu_text(path: Path) -> str:
     ppm_path = path.with_suffix(".ppm")
     txt_base = path.with_suffix("")
 
+    if progress:
+        progress("ocr")
     subprocess.run(
         [
             "ddjvu",
@@ -33,6 +37,8 @@ def extract_djvu_text(path: Path) -> str:
         check=True,
     )
 
+    if progress:
+        progress("ocr")
     subprocess.run(
         [
             "tesseract",
@@ -52,28 +58,34 @@ def extract_djvu_text(path: Path) -> str:
     )
 
 
-def extract_pdf_text(path: Path) -> list[tuple[int, str]]:
+def extract_pdf_text(path: Path, progress=None) -> list[tuple[int, str]]:
     from pypdf import PdfReader
 
     reader = PdfReader(str(path))
     pages: list[tuple[int, str]] = []
 
     for page_number, page in enumerate(reader.pages, start=1):
+        if progress:
+            progress("extracting", page_number - 1, len(reader.pages))
         text = page.extract_text() or ""
         pages.append((page_number, clean_text(text)))
+        if progress:
+            progress("extracting", page_number, len(reader.pages))
 
     total_text = "".join(text for _, text in pages)
 
     if len(total_text.strip()) < 200:
-        return extract_pdf_ocr(path)
+        return extract_pdf_ocr(path, progress)
 
     return pages
 
 
-def extract_pdf_ocr(path: Path) -> list[tuple[int, str]]:
+def extract_pdf_ocr(path: Path, progress=None) -> list[tuple[int, str]]:
     ocr_dir = path.parent / f"_ocr_{path.stem}"
     ocr_dir.mkdir(parents=True, exist_ok=True)
 
+    if progress:
+        progress("ocr")
     subprocess.run(
         [
             "pdftoppm",
@@ -88,7 +100,10 @@ def extract_pdf_ocr(path: Path) -> list[tuple[int, str]]:
 
     pages: list[tuple[int, str]] = []
 
-    for image in sorted(ocr_dir.glob("page-*.png")):
+    images = sorted(ocr_dir.glob("page-*.png"))
+    for index, image in enumerate(images):
+        if progress:
+            progress("ocr", index, len(images))
         page_number = int(image.stem.split("-")[-1])
         txt_base = image.with_suffix("")
 
@@ -109,18 +124,20 @@ def extract_pdf_ocr(path: Path) -> list[tuple[int, str]]:
         )
 
         pages.append((page_number, clean_text(text)))
+        if progress:
+            progress("ocr", index + 1, len(images))
 
     return pages
 
 
-def extract_text(path: Path) -> str | list[tuple[int, str]]:
+def extract_text(path: Path, progress=None) -> str | list[tuple[int, str]]:
     suffix = path.suffix.lower()
 
     if suffix == ".pdf":
-        return extract_pdf_text(path)
+        return extract_pdf_text(path, progress)
 
     if suffix in {".djvu", ".djv"}:
-        return extract_djvu_text(path)
+        return extract_djvu_text(path, progress)
 
     if suffix in {".txt", ".md"}:
         return clean_text(
